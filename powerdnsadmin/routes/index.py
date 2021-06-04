@@ -144,6 +144,9 @@ def oidc_login():
 def login():
     SAML_ENABLED = current_app.config.get('SAML_ENABLED')
 
+    
+    
+
     if g.user is not None and current_user.is_authenticated:
         return redirect(url_for('dashboard.dashboard'))
 
@@ -458,6 +461,17 @@ def login():
             return render_template('login.html',
                                    saml_enabled=SAML_ENABLED,
                                    error=e)
+
+        #check if user is authenticated
+        
+        result=user.is_authenticate()
+        if result['auth'] == False:
+            signin_history(user.username, auth_method, False)
+            return render_template('errors/401.html',
+                                       saml_enabled=SAML_ENABLED,
+                                       username=user.username,
+                                       email=result['admin_email'])
+
 
         # check if user enabled OPT authentication
         if user.otp_secret:

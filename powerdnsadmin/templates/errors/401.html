@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}<title>PowerDNS-Admin - 401 Error</title>{% endblock %}
+
+{% block dashboard_stat %}
+    <!-- Content Header (Page header) -->
+    <section class="content-header">
+      <h1>
+        401
+        <small>Error</small>
+      </h1>
+      <ol class="breadcrumb">
+        <li><a href="{{ url_for('dashboard.dashboard') }}"><i class="fa fa-dashboard"></i>Home</a></li>
+        <li>401</li>
+      </ol>
+    </section>
+{% endblock %}
+
+{% block content %}
+<!-- Main content -->
+<section class="content">
+    <div class="error-page">
+        <h2 class="headline text-yellow">401</h2>
+        <div class="error-content">
+            <h3>
+                <i class="fa fa-warning text-yellow"></i> You are not authorized to access this page. Tough luck!
+            </h3>
+            <p>
+                  The server refused to grant you{% if username %}, user with id: {{ username }},{% endif %} access and returned a 401 error.
+                  {% if email %} Please contact the admin at {{ email }}. {% endif %} 
+                <br/>You may <a href="{{ url_for('index.login') }}">return to the login page</a>.
+            </p>
+        </div>
+        <!-- /.error-content -->
+    </div>
+    <!-- /.error-page -->
+</section>
+<!-- /.content -->
+{% endblock %}

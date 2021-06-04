@@ -14,7 +14,6 @@ from .role import Role
 from .setting import Setting
 from .domain_user import DomainUser
 
-
 class Anonymous(AnonymousUserMixin):
     def __init__(self):
         self.username = 'Anonymous'
@@ -249,7 +248,8 @@ class User(db.Model):
 
             ldap_result = self.ldap_search(searchFilter, LDAP_BASE_DN)
             current_app.logger.debug('Ldap search result: {0}'.format(ldap_result))
-
+            #current_app.logger.debug('Gender {0}'.format(ldap_result[-1][-1][-1]['schacGender']))
+            #print(ldap_result[-1][-1][-1]['schacGender'])
             if not ldap_result:
                 current_app.logger.warning(
                     'LDAP User "{0}" does not exist. Authentication request from {1}'
@@ -295,6 +295,15 @@ class User(db.Model):
                                         'User {0} is part of the "{1}" group that allows user access to PowerDNS-Admin'
                                         .format(self.username,
                                                 LDAP_USER_GROUP))
+                                    #print('!!!!!!!!!!!!!!!!!')
+                                    #k = ldap_result[0][0][-1]['eduPersonEntitlement'][0].decode().split(':')[-1]
+                                    #if k == 'examplecom':
+                                    #    return False
+                                    #current_app.logger.info('EDUPERSON  {0}'.format((ldap_result[0][0][-1]['eduPersonEntitlement'][0]).split(':',1)[1]))
+                                    #print('!!!!!!!!!!!!!!!!!')
+                                    #print(self.get_accounts())
+                                    #if (self.get_accounts() == []):
+                                        #return False
                                 else:
                                     current_app.logger.error(
                                         'User {0} is not part of the "{1}", "{2}" or "{3}" groups that allow access to PowerDNS-Admin'
@@ -534,6 +543,27 @@ class User(db.Model):
         """
         self.confirmed = confirmed
         db.session.commit()
+ 
+    def get_domain_query(self):
+        """
+        Get query for domain to which the user has access permission.
+        This includes direct domain permission AND permission through
+        account membership
+        """
+        from .domain import Domain
+        from .domain_user import DomainUser
+        domains = []
+        query = db.session\
+            .query(
+                DomainUser,
+                Domain)\
+            .filter(self.id == DomainUser.user_id)\
+            .filter(Domain.id == DomainUser.domain_id)\
+            .all()
+        for q in query:
+            domains.append(q[1])
+        return domains 
+
 
     def get_domains(self):
         """
@@ -544,7 +574,50 @@ class User(db.Model):
         which user belong to
         """
 
-        return self.get_domain_query().all()
+        return self.get_domain_query()
+
+
+    def is_authenticate(self):
+        from ..models.user import User
+        from ..models.role import Role
+
+        auth=True
+        email=None
+
+        # check if a user belongs is an admin, if he belongs to an account, or if he belongs in a domain
+        #if he doesnt, he is not authorized to enter, so he gets send the 401 error code 
+        if self.role_id == 2 and self.get_user_domains() == []:
+            roles = Role.query.all()
+            admins = User.query.filter(User.role_id==1)
+            auth=False
+
+            for admin in admins: 
+                if (admin.email!= None): #user is an admin with a active email
+                    email=admin.email 
+
+        return { 'auth':auth , 'admin_email': email }
+        
+
+
+
+
+    def get_user_domains(self):
+        from ..models.base import db
+        from .account import Account
+        from .domain import Domain
+        from .account_user import AccountUser
+        from .domain_user import DomainUser
+
+        domains = db.session.query(Domain) \
+        .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
+        .outerjoin(Account, Domain.account_id == Account.id) \
+        .outerjoin(AccountUser, Account.id == AccountUser.account_id) \
+        .filter(
+            db.or_(
+                DomainUser.user_id == self.id,
+                AccountUser.user_id == self.id
+            )).all()
+        return domains
 
     def delete(self):
         """
